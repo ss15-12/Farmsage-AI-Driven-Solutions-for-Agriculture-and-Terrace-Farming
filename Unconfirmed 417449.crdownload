@@ -1,0 +1,252 @@
+import streamlit as st
+import numpy as np
+from tensorflow.keras.models import load_model
+import pickle
+import pandas as pd
+import cv2
+import numpy as np
+import streamlit as st
+import tensorflow as tf
+from sklearn.preprocessing import StandardScaler
+
+# Function to load model and encoder
+def load_crop_model():
+    loaded_model = load_model('crop_selection_model.h5')
+    with open('encoder.pkl', 'rb') as f:
+        encoder = pickle.load(f)
+    return loaded_model, encoder
+
+
+def load_fertilizer_model():
+    model = load_model('fertilizer_guidance_model.h5')
+    with open('f_encoder.pkl', 'rb') as f:
+        encoder = pickle.load(f)
+    with open('f_label_encoder.pkl', 'rb') as f:
+        label_encoder = pickle.load(f)
+    scaler = pickle.load(open('f_scaler.pkl', 'rb'))
+    return model, encoder, label_encoder, scaler
+
+
+# Crop Selection
+def crop_app():
+    st.title("Crop Selection")
+    st.write("Enter the soil and weather parameters to find a suitable crop.")
+
+    # Load model and encoder
+    loaded_model, encoder = load_crop_model()
+    # User input
+    col1, col2 = st.columns(2)
+    with col1:
+        N = st.number_input("Nitrogen content")
+        P = st.number_input("Phosphorous content")
+        K = st.number_input("Potassium content")
+        temperature = st.number_input("Temperature")
+    with col2:
+        humidity = st.number_input("Humidity")
+        ph = st.number_input("pH level")
+        rainfall = st.number_input("Rainfall")
+
+    # Recommend button
+    if st.button("Suggest Crop"):
+
+        cp = np.array([N, P, K, temperature, humidity, ph, rainfall]).reshape(1, -1)
+
+        # Predict and get recommendation
+        prediction = loaded_model.predict(cp)
+        max_index = np.argmax(prediction, axis=-1)
+        suggested_crop = encoder.inverse_transform(max_index)[0]
+
+        # Display recommendation
+        st.markdown("---")
+        st.header("Crop:")
+        st.subheader(suggested_crop)
+        st.markdown("---")
+
+
+# Fertilizer Guidance Module
+def fertilizer_app():
+    st.title("Fertilizer Guidance System")
+    st.write("Enter Soil and weather parameters along with crop")
+
+    # Load model, encoder, label_encoder, and scaler
+    model, encoder, label_encoder, scaler = load_fertilizer_model()
+
+    # Define available options for crop type and soil type
+    available_crop_types = ['Maize', 'Wheat', 'Rice']  # Modify with your available crop types
+    available_soil_types = ['Loamy', 'Sandy', 'Clayey']  # Modify with your available soil types
+
+    # User input
+    soil_type = st.selectbox("Select Soil Type:", available_soil_types)
+    crop_type = st.selectbox("Select Crop Type:", available_crop_types)
+    temperature = st.number_input("Enter temperature:")
+    humidity = st.number_input("Humidity:")
+    moisture = st.number_input("Moisture:")
+    nitrogen = st.number_input("Nitrogen content:")
+    potassium = st.number_input("Potassium content:")
+    phosphorous = st.number_input("Phosphorous content:")
+
+    # Suggest button
+    if st.button("Suggest Fertilizer"):
+        # Prepare data for prediction
+        input_data = pd.DataFrame({
+            'Soil Type': [soil_type],
+            'Crop Type': [crop_type],
+            'Temperature': [temperature],
+            'Humidity': [humidity],
+            'Moisture': [moisture],
+            'Nitrogen': [nitrogen],
+            'Potassium': [potassium],
+            'Phosphorous': [phosphorous]
+        })
+
+        # Encode categorical features
+        input_categorical = encoder.transform(input_data[['Soil Type', 'Crop Type']]).toarray()
+
+        # Combine numerical and encoded categorical features
+        input_numerical = input_data.drop(['Soil Type', 'Crop Type'], axis=1)
+        sample = np.concatenate([input_numerical, input_categorical], axis=1)
+
+        # Transform the input using the loaded scaler
+        sample = scaler.transform(sample)
+
+        # Predicting the fertilizer for the input
+        predicted_label = model.predict(sample)
+        predicted_fertilizer_index = np.argmax(predicted_label, axis=1)[0]
+        predicted_fertilizer = label_encoder.inverse_transform([predicted_fertilizer_index])[0]
+
+        # Display recommendation
+        st.markdown("---")
+        st.header("Fertilizer:")
+        st.subheader(predicted_fertilizer)
+        st.markdown("---")
+
+# Disease Identification Module
+
+# Load the saved model
+model = tf.keras.models.load_model('cnn_model.h5')
+
+# Define the class labels for the Plant Village dataset
+class_labels = ['Pepper__bell___Bacterial_spot', 'Pepper__bell___healthy', 'Potato___Early_blight', 'Potato___Late_blight',
+                'Potato___healthy', 'Tomato_Bacterial_spot', 'Tomato_Early_blight', 'Tomato_Late_blight', 'Tomato_Leaf_Mold',
+                'Tomato_Septoria_leaf_spot', 'Tomato_Spider_mites_Two_spotted_spider_mite', 'Tomato__Target_Spot',
+                'Tomato__Tomato_YellowLeaf__Curl_Virus', 'Tomato__Tomato_mosaic_virus', 'Tomato_healthy']
+
+# Image Classification
+def disease_identification_app():
+    st.title("Diesease Identification System")
+    st.write("Upload an image to find the plant disease.")
+
+    # File upload widget
+    uploaded_image = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+
+    if uploaded_image is not None:
+        # Preprocess the uploaded image
+        image = cv2.imdecode(np.fromstring(uploaded_image.read(), np.uint8), cv2.IMREAD_COLOR)
+        image = cv2.resize(image, (256, 256))
+        image = image.astype('float') / 255.0
+        image = np.expand_dims(image, axis=0)
+
+        # Make a prediction on the image
+        preds = model.predict(image)
+
+        # Get the index of the class with the highest probability
+        pred_index = np.argmax(preds)
+
+        # Get the class label for the predicted class index
+        pred_class = class_labels[pred_index]
+
+        # Display the predicted class label
+        st.image(image, caption="Uploaded Image", use_column_width=True)
+        st.write("Disease: ", pred_class)
+
+
+# Terrace Farming Advisory
+vegetable_data = {
+    "Tinda": {
+        "Ideal Temp. C": 25,
+        "Range Temp C": "20-30",
+        "Growing_way": "Direct",
+        "North India": "Feb-Mar/Jun-Jul",
+        "South India": "Feb-Mar/Jun-Jul"
+    },
+    "Beet": {
+        "Ideal Temp. C": 20,
+        "Range Temp C": "10-30",
+        "Growing_way": "Direct",
+        "North India": "Oct-Nov",
+        "South India": "Aug-Nov"
+    },
+    "Bittergourd": {
+        "Ideal Temp. C": 25,
+        "Range Temp C": "20-30",
+        "Growing_way": "Direct",
+        "North India": "Feb-March/June-July",
+        "South India": "Nov-Dec/Dec-Jan/Jun-July"
+    },
+    "Tomato": {
+        "Ideal Temp. C": 25,
+        "Range Temp C": "20-30",
+        "Growing_way": "Direct",
+        "North India": "Feb-March/June-July",
+        "South India": "Nov-Dec/Dec-Jan/Jun-July"
+    },
+    "Potato": {
+        "Ideal Temp. C": 25,
+        "Range Temp C": "20-30",
+        "Growing_way": "Direct",
+        "North India": "Feb-March/June-July",
+        "South India": "Nov-Dec/Dec-Jan/Jun-July"
+    },
+    "Brinjal": {
+        "Ideal Temp. C": 25,
+        "Range Temp C": "20-30",
+        "Growing_way": "Direct",
+        "North India": "Feb-March/June-July",
+        "South India": "Nov-Dec/Dec-Jan/Jun-July"
+    }
+}
+
+def display_characteristics(vegetable_name):
+    if vegetable_name in vegetable_data:
+        return vegetable_data[vegetable_name]
+    else:
+        return None
+
+# Terrace Farming Advisory App
+def terrace_farming_advisor_app():
+    st.title("Terrace Farming Advisor")
+
+    # User input for vegetable
+    selected_vegetable = st.selectbox("Select a vegetable to find its requirements:", list(vegetable_data.keys()))
+
+    if st.button("Find Requirements"):
+        characteristics = display_characteristics(selected_vegetable)
+        if characteristics:
+            st.write(f"Characteristics of {selected_vegetable}:")
+            for key, value in characteristics.items():
+                st.write(f"{key}: {value}")
+        else:
+            st.error(f"{selected_vegetable} not found in the database.")
+
+# Page configuration
+st.set_page_config(
+    page_title="TerraTune",
+    page_icon="🌱",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# Tabs
+tabs = ["Crop Selection", "Fertilizer suggestion","Disease Identification","Terrace Farming Advisor"]
+selected_tab = st.radio("Select an Option:", tabs)
+
+# Display Tab content based on selection
+if selected_tab == "Crop Selection":
+    crop_app()
+elif selected_tab == "Fertilizer suggestion":
+    fertilizer_app()
+elif selected_tab == "Terrace Farming Advisor":
+    terrace_farming_advisor_app()
+elif selected_tab == "Disease Identification":
+    disease_identification_app()
+
