@@ -11,3 +11,8 @@ Farmsage is an advanced deep learning application that revolutionizes both conve
 
 Through their individual features, these models add to a wide range of instruments aimed at improving agricultural methods and facilitating urban terrace farming.Farmsagerepresents a significant advancement in the application of deep learning to agriculture and urban farming. By providing a suite of decision facilitation tools, it empowers both farmers and urban dwellers to make data-driven decisions, thereby enhancing efficiency and productivity in both rural and urban settings.
 
+
+![1000059488](https://github.com/ss15-12/Farmsage-AI-Driven-Solutions-for-Agriculture-and-Terrace-Farming/assets/83355479/ed606cd7-09a0-4fe5-8576-5a1c6e980ae8)
+
+![1000059500](https://github.com/ss15-12/Farmsage-AI-Driven-Solutions-for-Agriculture-and-Terrace-Farming/assets/83355479/0fd00560-6e3e-4e73-b094-defa39f888d8)
+
